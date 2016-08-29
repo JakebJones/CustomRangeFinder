@@ -528,6 +528,15 @@ local options = {
          name = "Sound Options",
          type = "group",
          args = {
+            bothSoundsEnabled= {
+               type ="toggle",
+               name = "Enable simultaneous playback",
+               desc = "Allows the outter sound to play at the same time as the inner sound, when disabled inner sound gets priority",
+               order = 0,
+               width = "full",
+               get = function(info) return CustomRangeFinder.db.profile.bothSoundsEnabled end,
+               set = function(info, newValue) CustomRangeFinder.db.profile.bothSoundsEnabled = newValue end,
+            },
             innerSoundEnable = {
                type = "toggle",
                name = "Enable Inner Sound",
@@ -690,11 +699,11 @@ local defaults = {
       ringRed=1,
       ringBlue=1,
       ringGreen=1,
-	  innerSoundEnable =true,
+      innerSoundEnable =true,
       innerSoundFile = "Synth blip",
       innerSoundInterval = 2,
       innerSoundChannel = 1,
-	  outterSoundEnable = false,
+      outterSoundEnable = false,
       outterSoundFile = "None",
       outterSoundInterval = 2,
       outterSoundChannel =  1,
@@ -831,9 +840,6 @@ function CustomRangeFinder:BeginScan()
          end
    end)
 end
-
-
-
 
 function CustomRangeFinder:ChatCommand(input)
    if not input or input:trim() == "" then
@@ -982,22 +988,22 @@ function CustomRangeFinder:InitializeGroup()
    
    for i=1,groupSize, 1
    do
-	------problem most likely to do with players name never being set and thus cant set the color of the players dot even though it is now shown
+      ------problem most likely to do with players name never being set and thus cant set the color of the players dot even though it is now shown
       CRF_RaidGroup[i] = UnitName(groupPrefix..i)
-		  local class,_,_ = UnitClass(UnitName(groupPrefix..i))
-		  CRF_RaidTextures[i].text:SetFont(CRF_LSM:Fetch("font",CRFMedia["font"]),CustomRangeFinder.db.profile.radarFontSize)
-		  CRF_RaidTextures[i].text:SetText(UnitName(groupPrefix..i))
-		  if CustomRangeFinder.db.profile.playerNames == true then
-			 CRF_RaidTextures[i].text:Show()
-		  else
-			 CRF_RaidTextures[i].text:Hide()
-		  end
-		  if CustomRangeFinder.db.profile.classColor == true then
-			 CRF_RaidTextures[i]:SetVertexColor(CLASS_COLORS[class][1],CLASS_COLORS[class][2],CLASS_COLORS[class][3])
-		  else
-			 CRF_RaidTextures[i]:SetVertexColor(CustomRangeFinder.db.profile.red,CustomRangeFinder.db.profile.green,CustomRangeFinder.db.profile.blue)
-		  end
-		  CRF_RaidTextures[i]:SetSize(CustomRangeFinder.db.profile.dotSize*2^0.5,CustomRangeFinder.db.profile.dotSize*2^0.5)
+      local class,_,_ = UnitClass(UnitName(groupPrefix..i))
+      CRF_RaidTextures[i].text:SetFont(CRF_LSM:Fetch("font",CRFMedia["font"]),CustomRangeFinder.db.profile.radarFontSize)
+      CRF_RaidTextures[i].text:SetText(UnitName(groupPrefix..i))
+      if CustomRangeFinder.db.profile.playerNames == true then
+         CRF_RaidTextures[i].text:Show()
+      else
+         CRF_RaidTextures[i].text:Hide()
+      end
+      if CustomRangeFinder.db.profile.classColor == true then
+         CRF_RaidTextures[i]:SetVertexColor(CLASS_COLORS[class][1],CLASS_COLORS[class][2],CLASS_COLORS[class][3])
+      else
+         CRF_RaidTextures[i]:SetVertexColor(CustomRangeFinder.db.profile.red,CustomRangeFinder.db.profile.green,CustomRangeFinder.db.profile.blue)
+      end
+      CRF_RaidTextures[i]:SetSize(CustomRangeFinder.db.profile.dotSize*2^0.5,CustomRangeFinder.db.profile.dotSize*2^0.5)
    end
 end
 --[[
@@ -1029,7 +1035,6 @@ function CustomRangeFinder:scan_raid()
    local outterRange = 0
    local playerAngle = GetPlayerFacing()
    local rotatedangle = (math.pi*2)-playerAngle
-   local timeLeft = self:TimeLeft(timerID)
    --local groupSize = GetNumGroupMembers()
    local y1, x1, _, instance1 = UnitPosition("player")
    local pixelsPerYardInRange = (CustomRangeFinder.db.profile.radarSize/2)*CustomRangeFinder.db.profile.rangeRatio/(CustomRangeFinder.db.profile.detectionRange)
@@ -1155,27 +1160,79 @@ function CustomRangeFinder:scan_raid()
    end
    innerRangeCount = innerRange
    outterRangeCount = outterRange
-   if CustomRangeFinder.db.profile.innerSoundEnable ==true then
-      if innerRangeCount > 0 then
-         if timeLeft == 0 then
-            CustomRangeFinder:innerRange()
-            timerID = self:ScheduleTimer("innerRange",CustomRangeFinder.db.profile.innerSoundInterval)
+   CustomRangeFinder:playSound()
+end
+
+function CustomRangeFinder:playSound()
+   local timeLeft1 = self:TimeLeft(timerID1)
+   local timeLeft2 = self:TimeLeft(timerID2)
+   if CustomRangeFinder.db.profile.bothSoundsEnabled ==true then
+      if CustomRangeFinder.db.profile.outterSoundEnable ==true then
+         if outterRangeCount > 0 then
+            if timeLeft2 == 0 then
+               CustomRangeFinder:outterRange()
+               timerID2 = self:ScheduleTimer("outterRange",CustomRangeFinder.db.profile.outterSoundInterval)
+            end
+         else
+            if handle2 ~= nil then
+               StopSound(handle2)
+               self:CancelTimer(timerID2)
+            end
          end
-      else
-         if handle ~= nil then
-            StopSound(handle)
-            self:CancelTimer(timerID)
+      end
+      if CustomRangeFinder.db.profile.innerSoundEnable ==true then
+         if innerRangeCount > 0 then
+            if timeLeft1 == 0 then
+               CustomRangeFinder:innerRange()
+               timerID1 = self:ScheduleTimer("innerRange",CustomRangeFinder.db.profile.innerSoundInterval)
+            end
+         else
+            if handle1 ~= nil then
+               StopSound(handle1)
+               self:CancelTimer(timerID1)
+            end
          end
       end
    else
-      --StopSound(handle)
-      --self:CancelTimer(timerID)
+      if CustomRangeFinder.db.profile.innerSoundEnable ==true then
+         if innerRangeCount > 0 then
+            if timeLeft1 == 0 then
+               CustomRangeFinder:innerRange()
+               timerID1 = self:ScheduleTimer("innerRange",CustomRangeFinder.db.profile.innerSoundInterval)
+            end
+         else
+            if handle1 ~= nil then
+               StopSound(handle1)
+               self:CancelTimer(timerID1)
+            end
+         end
+      end
+      if CustomRangeFinder.db.profile.outterSoundEnable ==true then
+         if outterRangeCount > 0 and innerRangeCount ==0 then
+            if timeLeft2 == 0 then
+               CustomRangeFinder:outterRange()
+               timerID2 = self:ScheduleTimer("outterRange",CustomRangeFinder.db.profile.outterSoundInterval)
+            end
+         else
+            if handle2 ~= nil then
+               StopSound(handle2)
+               self:CancelTimer(timerID2)
+            end
+         end
+      end
    end
 end
 
-function CustomRangeFinder:innerRange()
-   if handle ~= nil then
-      StopSound(handle)
+function CustomRangeFinder:outterRange()
+   if handle2 ~= nil then
+      StopSound(handle2)
    end
-   _,handle = PlaySoundFile(CRF_LSM:Fetch("sound",CRFMedia["iSound"]),SOUND_CHANNELS[CustomRangeFinder.db.profile.innerSoundChannel])
+   _,handle2 = PlaySoundFile(CRF_LSM:Fetch("sound",CRFMedia["oSound"]),SOUND_CHANNELS[CustomRangeFinder.db.profile.outterSoundChannel])
+end
+
+function CustomRangeFinder:innerRange()
+   if handle1 ~= nil then
+      StopSound(handle1)
+   end
+   _,handle1 = PlaySoundFile(CRF_LSM:Fetch("sound",CRFMedia["iSound"]),SOUND_CHANNELS[CustomRangeFinder.db.profile.innerSoundChannel])
 end
