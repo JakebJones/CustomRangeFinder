@@ -44,6 +44,27 @@ local options = {
    type = "group",
    handler = CustomRangeFinder,
    args = {
+      loadingOptions = {
+         name = "Loading Options",
+         type = "group",
+         args={
+            loadInCombat = {
+               type = "toggle",
+               name = "Load in combat only",
+               desc = "Forces the addon to load only in combat",
+               order = 1,
+			   confirm = function() return "This change requires a reload to function" end,
+               get = function(info) return CustomRangeFinder.db.profile.loadInCombat end,
+               set = function(info, newValue)
+			
+			   CustomRangeFinder.db.profile.loadInCombat = newValue
+			   if newValue == true then
+					
+			   end
+			   end,
+            },
+         }
+      },
       namesOptions = {
          name ="Name Options",
          type = "group",
@@ -434,7 +455,7 @@ local options = {
          },
       },
       Textures = {
-         name = "Texture Options",
+         name = "Dot Options",
          type="group",
          args = {
             classColor ={
@@ -755,7 +776,12 @@ function CustomRangeFinder:OnInitialize()
    CustomRangeFinder:UpdatePlayerDot()
    CustomRangeFinder:InitializeGroup()
    CRF_UpdateInterval = self.db.profile.UpdateInterval
-   CustomRangeFinder:BeginScan()
+   if (CustomRangeFinder.db.profile.loadInCombat == true) then
+	  CRF_radar:Hide()
+	  CRF_radar:SetScript("OnUpdate",nil)
+   else
+	  CustomRangeFinder:BeginScan()
+   end
 end
 
 --[[
@@ -853,19 +879,41 @@ function CustomRangeFinder:ChatCommand(input)
 end
 
 function CustomRangeFinder:OnEnable()
-   CustomRangeFinder:RegisterEvent("PARTY_CONVERTED_TO_RAID", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("RAID_ROSTER_UPDATE", function() CustomRangeFinder:InitializeGroup() end)    
+
+
+	print("OnEnable called")
+   --EVENTS---------------------------------------------------------------------------------------------------------------------
+   CustomRangeFinder:RegisterEvent("PARTY_CONVERTED_TO_RAID", function() CustomRangeFinder:InitializeGroup() end)--Fires when the player's party becomes a raid group
+   CustomRangeFinder:RegisterEvent("RAID_ROSTER_UPDATE", function() CustomRangeFinder:InitializeGroup() end) --Fired whenever a raid is formed or disbanded, players are leaving or joining a raid (unsure if rejected join requests also fire the event), or when looting rules are changed (regardless of being in raid or party!) 
    CustomRangeFinder:RegisterEvent("GROUP_ROSTER_UPDATE", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PLAYER_DEAD", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PLAYER_ALIVE", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PLAYER_UNGHOST", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PARTY_MEMBERS_CHANGED", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PARTY_MEMBER_DISABLE", function() CustomRangeFinder:InitializeGroup() end)
-   CustomRangeFinder:RegisterEvent("PARTY_MEMBER_ENABLE", function() CustomRangeFinder:InitializeGroup() end)
+   CustomRangeFinder:RegisterEvent("PLAYER_DEAD", function() CustomRangeFinder:InitializeGroup() end) --Fires when the player dies
+   CustomRangeFinder:RegisterEvent("PLAYER_ALIVE", function() CustomRangeFinder:InitializeGroup() end)--Fires when the player's spirit is released after death or when the player accepts a resurrection without releasing
+   CustomRangeFinder:RegisterEvent("PLAYER_UNGHOST", function() CustomRangeFinder:InitializeGroup() end)--Fires when a player resurrects after being in spirit form
+   CustomRangeFinder:RegisterEvent("PARTY_MEMBERS_CHANGED", function() CustomRangeFinder:InitializeGroup() end)--This event is generated when someone joins or leaves the group, also generated whenever someone rejects an invite and you're in a group. Also, if for instance you have 3 people in your group and you invite a 4th, it will generate 4 events. If you call GetNumPartyMembers() it will return 0, 1, 2, and 3. First event returing zero, 2nd event returning 1, etc etc. 
+   CustomRangeFinder:RegisterEvent("PARTY_MEMBER_DISABLE", function() CustomRangeFinder:InitializeGroup() end) -- player goes offline
+   CustomRangeFinder:RegisterEvent("PARTY_MEMBER_ENABLE", function() CustomRangeFinder:InitializeGroup() end) -- player comes online
+   CustomRangeFinder:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+		if CustomRangeFinder.enableState ~= true then
+			CRF_radar:Show()
+			CustomRangeFinder:BeginScan()
+		end
+   end)--Fires when the player enters combat status. When in combat, normal health and mana regeneration is disabled.
+   CustomRangeFinder:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+		if CustomRangeFinder.db.profile.loadInCombat == true then
+			CRF_radar:Hide()
+			CRF_radar:SetScript("OnUpdate",nil)
+		end
+   end)--Fires when the player leaves combat status. When in combat, normal health and mana regeneration is disabled.
+
+   CustomRangeFinder:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", function() end)--Fires when the player, group member or raid member switches specialization.
+   CustomRangeFinder:RegisterEvent("ROLE_CHANGED_INFORM", function() end)--Fires when a party/raid member's role is changed manually. Roles are the strings "TANK", "HEALER", "DAMAGER", and "NONE". Use the additional arguments if you want to immediately use the new status; a call to UnitGroupRolesAssigned may not report the new data when called at this time.
+   --------------------------------------------------------------------------------------------------------------------------
 end
 
 function CustomRangeFinder:OnDisable()
-   
+		 CRF_radar:Hide()
+		 CRF_radar:SetScript("OnUpdate",nil)
+   print("OnDisable Called")
 end
 
 local function OnDragStop(self)
