@@ -1,9 +1,9 @@
 # CustomRangeFinder
 WoW addon - Customizable range radar
 
-CustomRangeFinder as the name states is a customizable range finder, designed to changed to suit a wide variety of situations and encounters.
+CustomRangeFinder as the name states is a customizable range finder, designed to be changed to suit a wide variety of situations and encounters.
 
-/crf or /customrangefinder
+/crf or /customrangefinder will bring up the options menu in game.
 
 Current features:
   - Dots (represent players)
@@ -35,6 +35,7 @@ Current features:
   Unimplemented features:
     -light of dawn indicator and possible other cone/directional spell indicators
     -Variable name visibility based on a set distance
+	-Showable current distance factor and players in proximity 
     -Showable table of players, with varying information
     -Custom selection and deslection visibility based on unitID's
     -Role textures for player dots.
